@@ -31,7 +31,7 @@ except ImportError:
     def should_scan_diff():
         return True
     def should_scan_repo():
-        return True
+        return False
     def should_scan_changed_lines_only():
         return True
 
@@ -844,17 +844,14 @@ def generate_and_open_report(secrets_found):
         return False
  
 def main():
-    print("DEBUG: Python script starting...")
+    # Change to the repository directory using the path passed from bash script
+    repo_root = os.environ.get('REPO_ROOT', None)
     
-    # Change to the repository directory if we're not already there
-    repo_root = os.environ.get('GIT_DIR', None)
-    if repo_root:
-        # If GIT_DIR is set, we need to go to its parent
-        repo_root = os.path.dirname(repo_root)
+    if repo_root and os.path.exists(repo_root):
         os.chdir(repo_root)
         print(f"-  Changed to repository directory: {repo_root}")
     elif not os.path.exists('.git'):
-        # Try to find the git repository by looking for .git directory
+        # Fallback: try to find the git repository by looking for .git directory
         current_dir = os.getcwd()
         while current_dir != '/':
             if os.path.exists(os.path.join(current_dir, '.git')):
@@ -864,6 +861,8 @@ def main():
             current_dir = os.path.dirname(current_dir)
         else:
             print(f"-  Warning: Could not find Git repository. Current directory: {os.getcwd()}")
+    else:
+        print(f"-  Already in repository directory: {os.getcwd()}")
     
     try:
         check_python()
@@ -880,20 +879,14 @@ def main():
                 text=True
             ).stdout.strip()
             
-            print(f"-  Git status: {status_output}")
-            
             if "up to date" in status_output.lower() and "ahead" not in status_output:
-                print("-  Repository is up to date, no validation needed")
                 sys.exit(0)
         except Exception as e:
-            print(f"-  Warning: Could not check git status: {e}")
+            # Removed warning log
             pass
         
         pushed_files = get_pushed_files()
-        print(f"-  Found {len(pushed_files)} files to validate")
-        
         if not pushed_files:
-            print("-  No files to validate, exiting")
             sys.exit(0)
         
         # Replace info log with progress print

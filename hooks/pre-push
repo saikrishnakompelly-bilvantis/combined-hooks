@@ -75,32 +75,23 @@ while read local_ref local_sha remote_ref remote_sha; do
 
 done
 
-echo -e "${BLUE}DEBUG: Reached end of main validation loop${NC}"
-
 # Run the local pre_push.py script from the hooks directory
 PYTHON_SCRIPT="$HOOK_DIR/pre_push.py"
 
-echo -e "${BLUE}DEBUG: About to check for Python script at: $PYTHON_SCRIPT${NC}"
-
 # Check if the Python script exists
-echo -e "${BLUE}DEBUG: Checking if file exists: $PYTHON_SCRIPT${NC}"
 if [ -f "$PYTHON_SCRIPT" ]; then
-    echo -e "${BLUE}DEBUG: Python script found, proceeding with execution${NC}"
     # Make the Python script executable (Unix-like systems only)
     if [ "$(uname)" != "MINGW"* ] && [ "$(uname)" != "MSYS"* ]; then
         chmod +x "$PYTHON_SCRIPT"
     fi
 
     echo -e "${YELLOW}Running additional pre-push validation...${NC}"
-    echo -e "${BLUE}Executing: $PYTHON $PYTHON_SCRIPT${NC}"
     
     # Run the Python script using the same Python command we detected earlier
     # Pass the repository root as an environment variable
     REPO_ROOT="$REPO_ROOT" $PYTHON "$PYTHON_SCRIPT"
     
     PYTHON_EXIT_CODE=$?
-    
-    echo -e "${BLUE}Python script exit code: $PYTHON_EXIT_CODE${NC}"
     
     if [ $PYTHON_EXIT_CODE -ne 0 ]; then
         echo -e "${RED}✗ Additional validation failed${NC}"
@@ -110,10 +101,8 @@ if [ -f "$PYTHON_SCRIPT" ]; then
         echo -e "${GREEN}✓ Additional validation passed${NC}"
     fi
 else
-    echo -e "${YELLOW}DEBUG: Additional pre_push.py script not found at $PYTHON_SCRIPT, skipping${NC}"
+    echo -e "${YELLOW}Note: Additional pre_push.py script not found, skipping${NC}"
 fi
-
-echo -e "${BLUE}DEBUG: Finished Python script section${NC}"
 
 echo -e "${GREEN}✓ Pre-push validation completed successfully${NC}"
 exit 0 
