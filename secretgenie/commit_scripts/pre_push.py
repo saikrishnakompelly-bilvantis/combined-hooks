@@ -21,17 +21,17 @@ logging.basicConfig(
 SCRIPT_DIR = Path(__file__).parent
 sys.path.append(str(SCRIPT_DIR))
  
-from commit_scripts.secretscan import SecretScanner
-from commit_scripts.utils import mask_secret
-from commit_scripts.secretscan import generate_html_report
+from secretscan import SecretScanner
+from utils import mask_secret
+from secretscan import generate_html_report
 try:
-    from commit_scripts.scan_config import should_scan_diff, should_scan_repo, should_scan_changed_lines_only
+    from scan_config import should_scan_diff, should_scan_repo, should_scan_changed_lines_only
 except ImportError:
     # If scan_config is not available, default to scanning both
     def should_scan_diff():
         return True
     def should_scan_repo():
-        return True
+        return False
     def should_scan_changed_lines_only():
         return True
 
