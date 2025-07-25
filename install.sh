@@ -201,11 +201,13 @@ run_api_validation() {
         if [ -n "$CHANGED_FILES" ]; then
             echo -e "${YELLOW}Validating API changes in range: $range${NC}"
             
-            # Run comprehensive validation with interactive mode
+            # Save current directory and run validation
+            CURRENT_DIR="$(pwd)"
             cd "$APIGENIE_ROOT"
             $PYTHON -m validation.api_validator --commit-range="$range" --interactive --repo-path "$REPO_ROOT"
             
             VALIDATION_EXIT_CODE=$?
+            cd "$CURRENT_DIR"
             
             if [ $VALIDATION_EXIT_CODE -ne 0 ]; then
                 echo -e "${RED}✗ API validation failed or was cancelled${NC}"
@@ -229,13 +231,16 @@ run_secret_scanning() {
         return 0
     fi
     
-    # Change to secret directory and run scanner
-    cd "$APIGENIE_ROOT/secret"
-    
-    # Set up environment for secret scanner
+    # Set up environment for secret scanner - CRITICAL: Stay in repo directory
     export SCRIPT_DIR="$APIGENIE_ROOT/secret"
     
-    # Run secret scanner
+    # Add the secret scripts to Python path
+    export PYTHONPATH="$APIGENIE_ROOT/secret:$PYTHONPATH"
+    
+    # Run secret scanner from the repository directory (not changing dirs)
+    echo -e "${YELLOW}Running secret scanner from repository: $REPO_ROOT${NC}"
+    
+    # Call the secret scanner Python script directly with proper path setup
     $PYTHON "$APIGENIE_ROOT/secret/pre_push.py"
     
     SECRET_EXIT_CODE=$?
@@ -256,7 +261,7 @@ while IFS= read -r line; do
     stdin_content+="$line"$'\n'
 done
 
-# Run API validation
+# Run API validation first
 if [ -n "$stdin_content" ]; then
     echo "$stdin_content" | run_api_validation
     if [ $? -ne 0 ]; then
@@ -265,7 +270,7 @@ if [ -n "$stdin_content" ]; then
     fi
 fi
 
-# Run secret scanning
+# Run secret scanning (this doesn't need stdin, it analyzes the repo directly)
 run_secret_scanning
 if [ $? -ne 0 ]; then
     echo -e "${RED}✗ Pre-push validation failed at secret scanning stage${NC}"
