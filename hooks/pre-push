@@ -72,7 +72,7 @@ fi
 if [ -n "$range" ]; then
     echo -e "${BLUE}Running Secret-Genie secret scan (with UI/justification, staged changes)...${NC}"
     cd "$REPO_ROOT"
-    $PYTHON "$GENIE_ROOT/secretgenie/commit_scripts/pre_push_secret_scan.py"
+    $PYTHON "$GENIE_ROOT/secret-genie/commit_scripts/pre_push_secret_scan.py"
     SECRET_EXIT_CODE=$?
 else
     echo -e "${YELLOW}No commit range detected for secret scan. Skipping.${NC}"
