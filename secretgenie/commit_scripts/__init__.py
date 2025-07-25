@@ -1,0 +1,1 @@
+"""Commit scripts package for Git hooks.""" 
