@@ -75,5 +75,24 @@ while read local_ref local_sha remote_ref remote_sha; do
 
 done
 
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(git config --global --get core.hookspath)"
+
+# Convert Windows path separators if needed
+SCRIPT_DIR=$(echo "$SCRIPT_DIR" | sed 's/\\/\//g')
+
+# Make the Python script executable (Unix-like systems only)
+if [ "$(uname)" != "MINGW"* ] && [ "$(uname)" != "MSYS"* ]; then
+    chmod +x "$SCRIPT_DIR/pre_push.py"
+fi
+
+# Run the Python script using python3 or python, whichever is available
+if command -v python3 >/dev/null 2>&1; then
+    python3 "$SCRIPT_DIR/pre_push.py"
+else
+    python "$SCRIPT_DIR/pre_push.py"
+fi
+
 echo -e "${GREEN}✓ Pre-push validation completed successfully${NC}"
 exit 0 
