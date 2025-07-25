@@ -196,3 +196,4 @@ For support and questions:
 3. Contact your system administrator # Test debug output
 # Test debug 2
 # Test debug 3
+# Test with global hooks
