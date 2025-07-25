@@ -530,7 +530,7 @@ def generate_html_report(output_path: str, **kwargs) -> bool:
                 html_content = template.format(**format_args)
             except (KeyError, ValueError) as e:
                 # If template formatting fails, fall back to simple report
-                logging.error(f"Error formatting template: {e}, falling back to simple template")
+                # logging.error(f"Error formatting template: {e}, falling back to simple template")
                 html_content = generate_simple_html_report(diff_secrets, repo_secrets, git_metadata)
 
         # Ensure output directory exists
