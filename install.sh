@@ -316,6 +316,14 @@ main() {
     backup_existing_hooks
     create_directories
     copy_validation_files
+    # Set scan config to diff mode by default
+    cat > "$GENIE_DIR/.genie_scan_config.json" << EOF
+{
+  "scan_mode": "diff",
+  "scan_changed_lines_only": true,
+  "last_updated": "$(date '+%Y-%m-%dT%H:%M:%S')"
+}
+EOF
     update_hook_paths
     create_version_info
     create_uninstall_script
