@@ -102,6 +102,7 @@ copy_validation_files() {
     
     # Copy Secret-Genie validation files (from local Combined-Hooks)
     cp -r "$SCRIPT_DIR/secretgenie/commit_scripts/"* "$SECRET_GENIE_DIR/commit_scripts/"
+    cp "$SCRIPT_DIR/secretgenie/commit_scripts/pre_push_secret_scan.py" "$SECRET_GENIE_DIR/commit_scripts/"
     
     # Copy the unified hooks
     cp "$SCRIPT_DIR/hooks/pre-push" "$HOOKS_DIR/"
