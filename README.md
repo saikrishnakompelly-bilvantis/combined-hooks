@@ -197,3 +197,4 @@ For support and questions:
 # Test debug 2
 # Test debug 3
 # Test with global hooks
+# Test directory fix
