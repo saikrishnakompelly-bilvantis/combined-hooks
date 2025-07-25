@@ -199,3 +199,4 @@ For support and questions:
 # Test with global hooks
 # Test directory fix
 # Test complete fix
+# Test repo path fix
