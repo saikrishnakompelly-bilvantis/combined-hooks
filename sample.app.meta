@@ -1,0 +1,42 @@
+{
+  "assetVersion": "1.0.0",
+  "metaDataVersion": "6.0.0",
+  "assetName": "rp-cds-hk-hbap-pa-ao-decision-wrapper",
+  "ignore": false,
+  "autoIncrementAssetVersion": true,
+  "contractOwner": {
+    "GBGF": "WPBsA",
+    "serviceLine": "WPB Retail Products IT",
+    "teamName": "SAS-DM-EXECUTION–APAC",
+    "teamEmailAddress": "ccsmlucesoftdmpodghsbc.co.in"
+  },
+  "API": {
+    "layer": "pAPI",
+    "version": {
+      "apiLocationId": "10480466",
+      "implementationFramework": "SPRING_BOOT",
+      "valueStreamName": "Credit Decision Systems",
+      "apiStyle": "HYDROGEN",
+      "architecturalStyle": "REST",
+      "status": "live",
+      "contractVersion": "1.0.0",
+      "dataClassification": "restricted",
+      "framework": "Carbon",
+      "dataModels": [],
+      "businessModels": [
+        {
+          "name": "WPB-CIDM",
+          "modelRef": "Domain.Subdomain.Function"
+        }
+      ],
+      "businesses": [
+        {
+          "countryCode": "HK",
+          "groupMember": "HBAP"
+        }
+      ]
+    },
+    "audience": "internal"
+  },
+  "contractFileName": "rp-cds-hk-hbap-pa-ao-decision-wrapper.yaml"
+}

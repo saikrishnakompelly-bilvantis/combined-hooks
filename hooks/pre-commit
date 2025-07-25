@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Pre-commit hook for Unified Genie Tools
-# This hook provides a gentle reminder about validation but doesn't block commits
-# Full validation happens during pre-push
+# Pre-commit hook for API projects
+# This hook provides a gentle reminder about API compliance but doesn't block commits
+# Full validation happens during pre-push with interactive options
 
 # Get the directory where this script is located
 HOOK_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-GENIE_ROOT="$(dirname "$HOOK_DIR")"
+APIGENIE_ROOT="$(dirname "$HOOK_DIR")"
 REPO_ROOT="$(pwd)"
 
 # Colors for output
@@ -24,19 +24,16 @@ else
     PYTHON=""
 fi
 
-# Check what type of project this might be
-if [ -f "$GENIE_ROOT/validation/api_validator.py" ] && [ -n "$PYTHON" ]; then
-    cd "$GENIE_ROOT"
-    API_TYPE=$($PYTHON -m validation.api_validator --identify-only --repo-path "$REPO_ROOT" 2>/dev/null | grep "API Type:" | cut -d' ' -f3 || echo "")
+# Quick check if this is an API project that needs validation
+if [ -f "$APIGENIE_ROOT/validation/api_validator.py" ] && [ -n "$PYTHON" ]; then
+    cd "$APIGENIE_ROOT"
+    API_TYPE=$($PYTHON -m validation.api_validator --identify-only --repo-path "$REPO_ROOT" 2>/dev/null | grep "API Type:" | cut -d' ' -f3)
     
     if [ "$API_TYPE" = "PCF" ] || [ "$API_TYPE" = "SHP" ] || [ "$API_TYPE" = "IKP" ] || [ "$API_TYPE" = "SHP/IKP" ]; then
-        echo -e "${BLUE}📋 Unified Genie: This is a $API_TYPE project${NC}"
-        echo -e "${YELLOW}💡 Reminder: Ensure api.meta files are compliant and no secrets are committed${NC}"
-    else
-        echo -e "${BLUE}📋 Unified Genie: General project detected${NC}"
-        echo -e "${YELLOW}💡 Reminder: Ensure no secrets are committed${NC}"
+        echo -e "${BLUE}📋 API Genie: This is a $API_TYPE project${NC}"
+        echo -e "${YELLOW}💡 Reminder: Ensure api.meta files are compliant before pushing${NC}"
+        echo -e "${GREEN}✓ Commit allowed - full validation will happen during push${NC}"
     fi
-    echo -e "${GREEN}✓ Commit allowed - full validation will happen during push${NC}"
 fi
 
 # Always allow commits - validation happens at push time

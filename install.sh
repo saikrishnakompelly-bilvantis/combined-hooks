@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Unified Genie - Global Git Hooks Installation Script
-# This script installs both Secret and API validation hooks globally for all git repositories
+# API Genie + Secret Genie - Global Git Hooks Installation Script
+# This script installs both API validation and secret scanning hooks globally for all git repositories
 
 set -e
 
@@ -14,15 +14,15 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Configuration
-GENIE_DIR="$HOME/.genie"
-HOOKS_DIR="$GENIE_DIR/hooks"
-VALIDATION_DIR="$GENIE_DIR/validation"
-SECRET_GENIE_DIR="$GENIE_DIR/secret-genie"
+APIGENIE_DIR="$HOME/.apigenie"
+HOOKS_DIR="$APIGENIE_DIR/hooks"
+VALIDATION_DIR="$APIGENIE_DIR/validation"
+SECRET_DIR="$APIGENIE_DIR/secret"
 
 echo -e "${CYAN}"
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║                    UNIFIED GENIE TOOLS                       ║"
-echo "║          Global Git Hooks Installation (Secret + API)        ║"
+echo "║                    API GENIE + SECRET GENIE                  ║"
+echo "║         Global Git Hooks Installation (Combined)             ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
@@ -52,38 +52,42 @@ backup_existing_hooks() {
     local current_hooks_path=$(git config --global --get core.hooksPath 2>/dev/null || echo "")
     if [ ! -z "$current_hooks_path" ]; then
         echo -e "${YELLOW}⚠️  Found existing global hooks path: $current_hooks_path${NC}"
-        echo -e "${YELLOW}   This will be backed up to: $GENIE_DIR/backup_hooks_path.txt${NC}"
+        echo -e "${YELLOW}   This will be backed up to: $APIGENIE_DIR/backup_hooks_path.txt${NC}"
         
         # Create the directory if it doesn't exist
-        mkdir -p "$GENIE_DIR"
-        echo "$current_hooks_path" > "$GENIE_DIR/backup_hooks_path.txt"
+        mkdir -p "$APIGENIE_DIR"
+        echo "$current_hooks_path" > "$APIGENIE_DIR/backup_hooks_path.txt"
     fi
 }
 
 # Function to create directory structure
 create_directories() {
-    echo -e "${BLUE}📁 Creating Unified Genie directory structure...${NC}"
+    echo -e "${BLUE}📁 Creating combined directory structure...${NC}"
     
     # Remove existing installation if it exists
-    if [ -d "$GENIE_DIR" ]; then
-        echo -e "${YELLOW}⚠️  Existing Genie installation found. Removing...${NC}"
-        rm -rf "$GENIE_DIR"
+    if [ -d "$APIGENIE_DIR" ]; then
+        echo -e "${YELLOW}⚠️  Existing installation found. Removing...${NC}"
+        rm -rf "$APIGENIE_DIR"
     fi
     
-    # Create directories
+    # Create directories for API validation
     mkdir -p "$HOOKS_DIR"
     mkdir -p "$VALIDATION_DIR"
     mkdir -p "$VALIDATION_DIR/ui"
     mkdir -p "$VALIDATION_DIR/validators"
-    mkdir -p "$SECRET_GENIE_DIR/commit_scripts"
-    mkdir -p "$SECRET_GENIE_DIR/commit_scripts/templates"
     
-    echo -e "${GREEN}✅ Directory structure created${NC}"
+    # Create directories for Secret validation
+    mkdir -p "$SECRET_DIR"
+    mkdir -p "$SECRET_DIR/commit_scripts"
+    mkdir -p "$SECRET_DIR/commit_scripts/templates"
+    mkdir -p "$SECRET_DIR/.commit-reports"
+    
+    echo -e "${GREEN}✅ Combined directory structure created${NC}"
 }
 
 # Function to copy validation files
 copy_validation_files() {
-    echo -e "${BLUE}📋 Copying validation system files...${NC}"
+    echo -e "${BLUE}📋 Copying API validation system files...${NC}"
     
     # Get the script directory (where this install.sh is located)
     SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
@@ -91,45 +95,214 @@ copy_validation_files() {
     # Copy API validation package
     cp -r "$SCRIPT_DIR/validation/"* "$VALIDATION_DIR/"
     
-    # Copy Secret-Genie validation files (from local Combined-Hooks)
-    cp -r "$SCRIPT_DIR/secretgenie/commit_scripts/"* "$SECRET_GENIE_DIR/commit_scripts/"
-    cp "$SCRIPT_DIR/secretgenie/commit_scripts/pre_push.py" "$SECRET_GENIE_DIR/commit_scripts/"
+    # Copy API requirements and demo
+    cp "$SCRIPT_DIR/requirements.txt" "$APIGENIE_DIR/api_requirements.txt"
+    cp "$SCRIPT_DIR/demo_interactive.py" "$APIGENIE_DIR/"
     
-    # Copy the unified hooks
-    cp "$SCRIPT_DIR/hooks/pre-push" "$HOOKS_DIR/"
-    cp "$SCRIPT_DIR/hooks/pre-commit" "$HOOKS_DIR/"
+    echo -e "${GREEN}✅ API validation files copied${NC}"
+}
+
+# Function to copy secret validation files
+copy_secret_files() {
+    echo -e "${BLUE}🔒 Copying Secret-Genie validation system files...${NC}"
     
-    # Copy requirements and demo files
-    cp "$SCRIPT_DIR/requirements.txt" "$GENIE_DIR/"
-    if [ -f "$SCRIPT_DIR/demo_interactive.py" ]; then
-        cp "$SCRIPT_DIR/demo_interactive.py" "$GENIE_DIR/"
+    # Get the script directory
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+    
+    # Copy Secret-Genie files
+    if [ -d "$SCRIPT_DIR/Secret-Genie/src/hooks/commit_scripts" ]; then
+        cp -r "$SCRIPT_DIR/Secret-Genie/src/hooks/commit_scripts/"* "$SECRET_DIR/commit_scripts/"
+        
+        # Copy the main pre_push.py file
+        cp "$SCRIPT_DIR/Secret-Genie/src/hooks/pre_push.py" "$SECRET_DIR/"
+        
+        # Copy configuration files
+        if [ -f "$SCRIPT_DIR/Secret-Genie/src/hooks/scan-config" ]; then
+            cp "$SCRIPT_DIR/Secret-Genie/src/hooks/scan-config" "$SECRET_DIR/"
+        fi
+        
+        # Copy requirements
+        cp "$SCRIPT_DIR/Secret-Genie/requirements.txt" "$APIGENIE_DIR/secret_requirements.txt"
+        
+        echo -e "${GREEN}✅ Secret validation files copied${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Secret-Genie directory not found, skipping secret validation${NC}"
+    fi
+}
+
+# Function to create combined hooks
+create_combined_hooks() {
+    echo -e "${BLUE}🔗 Creating combined pre-push hook...${NC}"
+    
+    # Create combined pre-push hook
+    cat > "$HOOKS_DIR/pre-push" << 'EOF'
+#!/bin/bash
+
+# Combined Pre-push hook for API validation and Secret scanning
+# This hook runs before pushing to remote repository
+
+set -e
+
+# Get the directory where this script is located
+HOOK_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+APIGENIE_ROOT="$(dirname "$HOOK_DIR")"
+REPO_ROOT="$(pwd)"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+echo -e "${CYAN}🛡️  Running comprehensive validation before push...${NC}"
+echo -e "${BLUE}   • API validation${NC}"
+echo -e "${BLUE}   • Secret scanning${NC}"
+
+# Dynamic Python detection
+if command -v python3 &> /dev/null; then
+    PYTHON=python3
+elif command -v python &> /dev/null; then
+    PYTHON=python
+else
+    echo -e "${RED}Error: Python is not installed or not in PATH${NC}"
+    exit 1
+fi
+
+# Function to run API validation
+run_api_validation() {
+    echo -e "${BLUE}🔍 Running API validation...${NC}"
+    
+    # Check if validation module exists
+    if [ ! -f "$APIGENIE_ROOT/validation/api_validator.py" ]; then
+        echo -e "${YELLOW}⚠️  API validation module not found, skipping API validation${NC}"
+        return 0
     fi
     
-    # Make hooks executable
-    chmod +x "$HOOKS_DIR/pre-push"
-    chmod +x "$HOOKS_DIR/pre-commit"
+    # Read from stdin for API validation
+    while read local_ref local_sha remote_ref remote_sha; do
+        if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+            # Branch is being deleted, nothing to validate
+            continue
+        fi
+        
+        if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+            # New branch, validate all commits
+            range="$local_sha"
+        else
+            # Existing branch, validate new commits
+            range="$remote_sha..$local_sha"
+        fi
+        
+        # Get list of changed files in the push
+        CHANGED_FILES=$(git diff --name-only "$range")
+        
+        if [ -n "$CHANGED_FILES" ]; then
+            echo -e "${YELLOW}Validating API changes in range: $range${NC}"
+            
+            # Run comprehensive validation with interactive mode
+            cd "$APIGENIE_ROOT"
+            $PYTHON -m validation.api_validator --commit-range="$range" --interactive --repo-path "$REPO_ROOT"
+            
+            VALIDATION_EXIT_CODE=$?
+            
+            if [ $VALIDATION_EXIT_CODE -ne 0 ]; then
+                echo -e "${RED}✗ API validation failed or was cancelled${NC}"
+                return 1
+            else
+                echo -e "${GREEN}✓ API validation passed${NC}"
+            fi
+        fi
+    done
     
-    echo -e "${GREEN}✅ Validation files copied${NC}"
+    return 0
+}
+
+# Function to run secret scanning
+run_secret_scanning() {
+    echo -e "${BLUE}🔒 Running secret scanning...${NC}"
+    
+    # Check if secret scanning module exists
+    if [ ! -f "$APIGENIE_ROOT/secret/pre_push.py" ]; then
+        echo -e "${YELLOW}⚠️  Secret scanning module not found, skipping secret validation${NC}"
+        return 0
+    fi
+    
+    # Change to secret directory and run scanner
+    cd "$APIGENIE_ROOT/secret"
+    
+    # Set up environment for secret scanner
+    export SCRIPT_DIR="$APIGENIE_ROOT/secret"
+    
+    # Run secret scanner
+    $PYTHON "$APIGENIE_ROOT/secret/pre_push.py"
+    
+    SECRET_EXIT_CODE=$?
+    
+    if [ $SECRET_EXIT_CODE -ne 0 ]; then
+        echo -e "${RED}✗ Secret scanning failed or was cancelled${NC}"
+        return 1
+    else
+        echo -e "${GREEN}✓ Secret scanning passed${NC}"
+    fi
+    
+    return 0
+}
+
+# Store stdin in a variable since we need to use it for both validations
+stdin_content=""
+while IFS= read -r line; do
+    stdin_content+="$line"$'\n'
+done
+
+# Run API validation
+if [ -n "$stdin_content" ]; then
+    echo "$stdin_content" | run_api_validation
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}✗ Pre-push validation failed at API validation stage${NC}"
+        exit 1
+    fi
+fi
+
+# Run secret scanning
+run_secret_scanning
+if [ $? -ne 0 ]; then
+    echo -e "${RED}✗ Pre-push validation failed at secret scanning stage${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ All pre-push validations completed successfully${NC}"
+exit 0
+EOF
+
+    # Copy the existing pre-commit hook as well
+    cp "$SCRIPT_DIR/hooks/pre-commit" "$HOOKS_DIR/"
+    
+    # Make hooks executable
+    chmod +x "$HOOKS_DIR/pre-commit"
+    chmod +x "$HOOKS_DIR/pre-push"
+    
+    echo -e "${GREEN}✅ Combined hooks created${NC}"
 }
 
 # Function to create version info
 create_version_info() {
-    cat > "$GENIE_DIR/version.txt" << EOF
-Unified Genie Tools Version 1.0.0
-- Secret-Genie: Secret detection and validation
-- API-Genie: API compliance validation
+    cat > "$APIGENIE_DIR/version.txt" << EOF
+API Genie + Secret Genie Version 1.0.0
 Installation Date: $(date)
-Installation Path: $GENIE_DIR
+Installation Path: $APIGENIE_DIR
 Git Hooks Path: $HOOKS_DIR
+Components: API Validation, Secret Scanning
 EOF
 }
 
 # Function to create uninstall script
 create_uninstall_script() {
-    cat > "$GENIE_DIR/uninstall.sh" << 'EOF'
+    cat > "$APIGENIE_DIR/uninstall.sh" << 'EOF'
 #!/bin/bash
 
-# Unified Genie - Global Git Hooks Uninstallation Script
+# API Genie + Secret Genie - Global Git Hooks Uninstallation Script
 
 set -e
 
@@ -141,16 +314,16 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-GENIE_DIR="$HOME/.genie"
+APIGENIE_DIR="$HOME/.apigenie"
 
 echo -e "${CYAN}"
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║                    UNIFIED GENIE TOOLS                       ║"
-echo "║           Global Git Hooks Uninstallation                    ║"
+echo "║                API GENIE + SECRET GENIE                      ║"
+echo "║             Global Git Hooks Uninstallation                  ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
-echo -e "${YELLOW}This will remove the global Secret and API validation hooks.${NC}"
+echo -e "${YELLOW}This will remove the global validation hooks (API + Secret).${NC}"
 echo -e "${YELLOW}Your repositories will no longer have automatic validation.${NC}"
 echo ""
 read -p "Are you sure you want to continue? (y/N): " -n 1 -r
@@ -166,20 +339,20 @@ echo -e "${BLUE}🔧 Removing global git hooks configuration...${NC}"
 git config --global --unset core.hooksPath
 
 # Restore backup if it exists
-if [ -f "$GENIE_DIR/backup_hooks_path.txt" ]; then
-    backup_path=$(cat "$GENIE_DIR/backup_hooks_path.txt")
+if [ -f "$APIGENIE_DIR/backup_hooks_path.txt" ]; then
+    backup_path=$(cat "$APIGENIE_DIR/backup_hooks_path.txt")
     echo -e "${YELLOW}📁 Restoring previous hooks path: $backup_path${NC}"
     git config --global core.hooksPath "$backup_path"
 fi
 
-echo -e "${BLUE}🗑️  Removing Unified Genie directory...${NC}"
-rm -rf "$GENIE_DIR"
+echo -e "${BLUE}🗑️  Removing combined Genie directory...${NC}"
+rm -rf "$APIGENIE_DIR"
 
-echo -e "${GREEN}✅ Unified Genie has been successfully uninstalled!${NC}"
+echo -e "${GREEN}✅ API Genie + Secret Genie has been successfully uninstalled!${NC}"
 echo -e "${BLUE}ℹ️  Your git repositories will now use default or local hooks.${NC}"
 EOF
 
-    chmod +x "$GENIE_DIR/uninstall.sh"
+    chmod +x "$APIGENIE_DIR/uninstall.sh"
     echo -e "${GREEN}✅ Uninstall script created${NC}"
 }
 
@@ -187,12 +360,11 @@ EOF
 update_hook_paths() {
     echo -e "${BLUE}🔧 Updating hook file paths...${NC}"
     
-    # Update pre-push hook to use the correct paths
-    sed -i.bak "s|APIGENIE_ROOT=\"\$(dirname \"\$HOOK_DIR\")\"|GENIE_ROOT=\"$GENIE_DIR\"|g" "$HOOKS_DIR/pre-push"
-    sed -i.bak "s|GENIE_ROOT=\"\$(dirname \"\$HOOK_DIR\")\"|GENIE_ROOT=\"$GENIE_DIR\"|g" "$HOOKS_DIR/pre-push"
-    
-    # Remove backup files
-    rm -f "$HOOKS_DIR/pre-push.bak"
+    # Update pre-commit hook if it exists
+    if [ -f "$HOOKS_DIR/pre-commit" ]; then
+        sed -i.bak "s|PROJECT_ROOT=\"\$(dirname \"\$HOOK_DIR\")\"|PROJECT_ROOT=\"$APIGENIE_DIR\"|g" "$HOOKS_DIR/pre-commit"
+        rm -f "$HOOKS_DIR/pre-commit.bak"
+    fi
     
     echo -e "${GREEN}✅ Hook paths updated${NC}"
 }
@@ -226,7 +398,7 @@ configure_git() {
     # Set global hooks path
     git config --global core.hooksPath "$HOOKS_DIR"
     
-    echo -e "${GREEN}✅ Git configured to use Unified Genie hooks${NC}"
+    echo -e "${GREEN}✅ Git configured to use combined hooks${NC}"
 }
 
 # Function to test installation
@@ -234,24 +406,24 @@ test_installation() {
     echo -e "${BLUE}🧪 Testing installation...${NC}"
     
     # Test API validator
-    cd "$GENIE_DIR"
-    if $PYTHON_CMD -m validation.api_validator --identify-only > /dev/null 2>&1; then
-        echo -e "${GREEN}✅ API validator is working${NC}"
-    else
-        echo -e "${YELLOW}⚠️  API validator test completed (this is normal for non-API repositories)${NC}"
+    cd "$APIGENIE_DIR"
+    if [ -f "$VALIDATION_DIR/api_validator.py" ]; then
+        if $PYTHON_CMD -m validation.api_validator --identify-only > /dev/null 2>&1; then
+            echo -e "${GREEN}✅ API validator is working${NC}"
+        else
+            echo -e "${YELLOW}⚠️  API validator test completed${NC}"
+        fi
     fi
     
-    # Test Secret scanner
-    if $PYTHON_CMD -c "
-import sys
-sys.path.append('$SECRET_GENIE_DIR/commit_scripts')
-from commit_scripts.secretscan import SecretScanner
-scanner = SecretScanner()
-print('✅ Secret scanner is working')
-" 2>/dev/null; then
-        echo -e "${GREEN}✅ Secret scanner is working${NC}"
-    else
-        echo -e "${YELLOW}⚠️  Secret scanner test had issues but may still work${NC}"
+    # Test secret scanner
+    if [ -f "$SECRET_DIR/commit_scripts/secretscan.py" ]; then
+        echo -e "${GREEN}✅ Secret scanner components installed${NC}"
+    fi
+    
+    # Test demo (if in interactive environment)
+    if [ -t 0 ] && [ -t 1 ] && command_exists $PYTHON_CMD; then
+        echo -e "${BLUE}🎯 Installation complete! You can test the API UI with:${NC}"
+        echo -e "   ${CYAN}cd ~/.apigenie && $PYTHON_CMD demo_interactive.py${NC}"
     fi
 }
 
@@ -262,23 +434,24 @@ display_success() {
     echo -e "${GREEN}║                   INSTALLATION COMPLETE!                     ║${NC}"
     echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo -e "${BLUE}🎉 Unified Genie Tools have been successfully installed globally!${NC}"
+    echo -e "${BLUE}🎉 API Genie + Secret Genie has been successfully installed globally!${NC}"
     echo ""
-    echo -e "${CYAN}📁 Installation Directory:${NC} $GENIE_DIR"
+    echo -e "${CYAN}📁 Installation Directory:${NC} $APIGENIE_DIR"
     echo -e "${CYAN}🪝 Git Hooks Directory:${NC} $HOOKS_DIR"
     echo ""
     echo -e "${YELLOW}📋 What happens now:${NC}"
-    echo -e "   • All your git repositories will use Unified Genie hooks"
-    echo -e "   • Secret validation runs on all pushes"
-    echo -e "   • API validation runs only on PCF/SHP/IKP repositories"
-    echo -e "   • Other repositories will proceed normally after secret scan"
-    echo -e "   • Push operations will be blocked if secrets or API issues are found"
+    echo -e "   • All your git repositories will use combined validation hooks"
+    echo -e "   • API validation: Only PCF and SHP/IKP repositories will be validated"
+    echo -e "   • Secret scanning: All repositories will be scanned for secrets"
+    echo -e "   • Other repositories will proceed normally for API validation"
+    echo -e "   • Push operations with failures will show interactive UI"
     echo ""
     echo -e "${CYAN}🛠️  Management Commands:${NC}"
-    echo -e "   • Check version:  ${YELLOW}cat ~/.genie/version.txt${NC}"
-    echo -e "   • Uninstall:      ${YELLOW}~/.genie/uninstall.sh${NC}"
+    echo -e "   • Test API UI:    ${YELLOW}cd ~/.apigenie && $PYTHON_CMD demo_interactive.py${NC}"
+    echo -e "   • Check version:  ${YELLOW}cat ~/.apigenie/version.txt${NC}"
+    echo -e "   • Uninstall:      ${YELLOW}~/.apigenie/uninstall.sh${NC}"
     echo ""
-    echo -e "${GREEN}🚀 Happy coding with validated secrets and APIs!${NC}"
+    echo -e "${GREEN}🚀 Happy coding with validated APIs and secure secrets!${NC}"
 }
 
 # Main installation process
@@ -290,7 +463,7 @@ main() {
         exit 1
     fi
     
-    echo -e "${BLUE}🚀 Starting Unified Genie installation...${NC}"
+    echo -e "${BLUE}🚀 Starting combined installation...${NC}"
     echo ""
     
     # Installation steps
@@ -298,14 +471,8 @@ main() {
     backup_existing_hooks
     create_directories
     copy_validation_files
-    # Set scan config to diff mode by default
-    cat > "$GENIE_DIR/.genie_scan_config.json" << EOF
-{
-  "scan_mode": "diff",
-  "scan_changed_lines_only": true,
-  "last_updated": "$(date '+%Y-%m-%dT%H:%M:%S')"
-}
-EOF
+    copy_secret_files
+    create_combined_hooks
     update_hook_paths
     create_version_info
     create_uninstall_script

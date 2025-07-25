@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Combined Genie - Quick Uninstaller
-# This script calls the main uninstall script from ~/.genie
+# API Genie - Quick Uninstaller
+# This script calls the main uninstall script from ~/.apigenie
 
 set -e
 
@@ -12,25 +12,25 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-GENIE_DIR="$HOME/.genie"
+APIGENIE_DIR="$HOME/.apigenie"
 
-echo -e "${BLUE}Combined Genie - Quick Uninstaller${NC}"
+echo -e "${BLUE}API Genie - Quick Uninstaller${NC}"
 echo ""
 
-# Check if Genie is installed
-if [ ! -d "$GENIE_DIR" ]; then
-    echo -e "${YELLOW}⚠️  Genie is not installed (no ~/.genie directory found)${NC}"
+# Check if API Genie is installed
+if [ ! -d "$APIGENIE_DIR" ]; then
+    echo -e "${YELLOW}⚠️  API Genie is not installed (no ~/.apigenie directory found)${NC}"
     exit 0
 fi
 
 # Check if uninstall script exists
-if [ ! -f "$GENIE_DIR/uninstall.sh" ]; then
-    echo -e "${RED}❌ Genie uninstall script not found${NC}"
-    echo -e "${YELLOW}💡 You can manually remove: rm -rf ~/.genie${NC}"
+if [ ! -f "$APIGENIE_DIR/uninstall.sh" ]; then
+    echo -e "${RED}❌ API Genie uninstall script not found${NC}"
+    echo -e "${YELLOW}💡 You can manually remove: rm -rf ~/.apigenie${NC}"
     echo -e "${YELLOW}   And reset git config: git config --global --unset core.hooksPath${NC}"
     exit 1
 fi
 
 # Run the actual uninstall script
-echo -e "${BLUE}🔄 Running Genie uninstaller...${NC}"
-exec "$GENIE_DIR/uninstall.sh" 
+echo -e "${BLUE}🔄 Running API Genie uninstaller...${NC}"
+exec "$APIGENIE_DIR/uninstall.sh" 

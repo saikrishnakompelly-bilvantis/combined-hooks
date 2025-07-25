@@ -1,21 +1,23 @@
 #!/bin/bash
 
-# Combined Pre-push hook: API-Genie validation first, then Secret-Genie (with UI/justification, diff only)
-# 1. Run API-Genie validation if API repo
-# 2. If passed, run Secret-Genie secretscan.py --range <range> (UI, justification, HTML report, diff only)
-# 3. Block push if either fails
+# Pre-push hook for comprehensive API validation with interactive UI
+# This hook runs before pushing to remote repository
 
 set -e
 
+# Get the directory where this script is located
 HOOK_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-GENIE_ROOT="$(dirname "$HOOK_DIR")"
+APIGENIE_ROOT="$(dirname "$HOOK_DIR")"
 REPO_ROOT="$(pwd)"
 
+# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m'
+NC='\033[0m' # No Color
+
+echo -e "${BLUE}Running comprehensive API validation before push...${NC}"
 
 # Dynamic Python detection
 if command -v python3 &> /dev/null; then
@@ -27,63 +29,51 @@ else
     exit 1
 fi
 
-# Get commit range for push
-range=""
+# Check if validation module exists
+if [ ! -f "$APIGENIE_ROOT/validation/api_validator.py" ]; then
+    echo -e "${RED}Error: API validation module not found${NC}"
+    exit 1
+fi
+
+# Read from stdin
 while read local_ref local_sha remote_ref remote_sha; do
     if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+        # Branch is being deleted, nothing to validate
         continue
     fi
+    
     if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+        # New branch, validate all commits
         range="$local_sha"
     else
+        # Existing branch, validate new commits
         range="$remote_sha..$local_sha"
     fi
-    break
-done
-
-# API-Genie validation (only for API repos)
-if [ -f "$GENIE_ROOT/validation/api_validator.py" ]; then
-    API_TYPE=$($PYTHON -m validation.api_validator --identify-only --repo-path "$REPO_ROOT" 2>/dev/null | grep "API Type:" | cut -d' ' -f3 || echo "")
-    if [ "$API_TYPE" = "PCF" ] || [ "$API_TYPE" = "SHP" ] || [ "$API_TYPE" = "IKP" ] || [ "$API_TYPE" = "SHP/IKP" ]; then
-        echo -e "${BLUE}Detected API project ($API_TYPE). Running API-Genie validation...${NC}"
-        if [ -n "$range" ]; then
-            CHANGED_FILES=$(git diff --name-only "$range" 2>/dev/null || echo "")
-            if [ -n "$CHANGED_FILES" ]; then
-                echo -e "${YELLOW}Validating changes in range: $range${NC}"
-                cd "$GENIE_ROOT"
-                if $PYTHON -m validation.api_validator --commit-range="$range" --repo-path "$REPO_ROOT"; then
-                    echo -e "${GREEN}✓ API-Genie validation passed${NC}"
-                else
-                    echo -e "${RED}✗ API-Genie validation failed. Push blocked.${NC}"
-                    exit 1
-                fi
-            else
-                echo -e "${YELLOW}No file changes detected in push range${NC}"
-            fi
+    
+    # Get list of changed files in the push
+    CHANGED_FILES=$(git diff --name-only "$range")
+    
+    if [ -n "$CHANGED_FILES" ]; then
+        echo -e "${YELLOW}Validating changes in range: $range${NC}"
+        
+        # Run comprehensive validation with interactive mode
+        cd "$APIGENIE_ROOT"
+        $PYTHON -m validation.api_validator --commit-range="$range" --interactive --repo-path "$REPO_ROOT"
+        
+        VALIDATION_EXIT_CODE=$?
+        
+        if [ $VALIDATION_EXIT_CODE -ne 0 ]; then
+            echo -e "${RED}✗ Validation failed or was cancelled${NC}"
+            echo -e "${YELLOW}Push aborted.${NC}"
+            exit 1
+        else
+            echo -e "${GREEN}✓ Validation passed or proceeded with justification${NC}"
         fi
     else
-        echo -e "${YELLOW}Not an API project (detected: ${API_TYPE:-unknown}), skipping API validation.${NC}"
+        echo -e "${YELLOW}No file changes detected in push range${NC}"
     fi
-else
-    echo -e "${YELLOW}API-Genie validation module not found, skipping API validation.${NC}"
-fi
 
-# After API validation, run Secret-Genie scan for the commit range
-if [ -n "$range" ]; then
-    echo -e "${BLUE}Running Secret-Genie secret scan (official pre_push.py, scan config controlled)...${NC}"
-    cd "$REPO_ROOT"
-    $PYTHON "$GENIE_ROOT/secret-genie/commit_scripts/pre_push.py"
-    SECRET_EXIT_CODE=$?
-else
-    echo -e "${YELLOW}No commit range detected for secret scan. Skipping.${NC}"
-    SECRET_EXIT_CODE=0
-fi
+done
 
-if [ $SECRET_EXIT_CODE -ne 0 ]; then
-    echo -e "${RED}✗ Secret-Genie scan failed or was aborted. Push blocked.${NC}"
-    exit 1
-else
-    echo -e "${GREEN}✓ Secret-Genie scan passed or justified. Push allowed.${NC}"
-fi
-
+echo -e "${GREEN}✓ Pre-push validation completed successfully${NC}"
 exit 0 
