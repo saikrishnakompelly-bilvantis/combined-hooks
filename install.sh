@@ -13,11 +13,10 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Configuration
+# Configuration - following Secret-Genie's pattern
 APIGENIE_DIR="$HOME/.apigenie"
 HOOKS_DIR="$APIGENIE_DIR/hooks"
 VALIDATION_DIR="$APIGENIE_DIR/validation"
-SECRET_DIR="$APIGENIE_DIR/secret"
 
 echo -e "${CYAN}"
 echo "╔══════════════════════════════════════════════════════════════╗"
@@ -70,17 +69,11 @@ create_directories() {
         rm -rf "$APIGENIE_DIR"
     fi
     
-    # Create directories for API validation
+    # Create directories following Secret-Genie pattern
     mkdir -p "$HOOKS_DIR"
     mkdir -p "$VALIDATION_DIR"
     mkdir -p "$VALIDATION_DIR/ui"
     mkdir -p "$VALIDATION_DIR/validators"
-    
-    # Create directories for Secret validation
-    mkdir -p "$SECRET_DIR"
-    mkdir -p "$SECRET_DIR/commit_scripts"
-    mkdir -p "$SECRET_DIR/commit_scripts/templates"
-    mkdir -p "$SECRET_DIR/.commit-reports"
     
     echo -e "${GREEN}✅ Combined directory structure created${NC}"
 }
@@ -102,23 +95,32 @@ copy_validation_files() {
     echo -e "${GREEN}✅ API validation files copied${NC}"
 }
 
-# Function to copy secret validation files
+# Function to copy secret validation files - following Secret-Genie's exact pattern
 copy_secret_files() {
-    echo -e "${BLUE}🔒 Copying Secret-Genie validation system files...${NC}"
+    echo -e "${BLUE}🔒 Copying Secret-Genie validation files...${NC}"
     
     # Get the script directory
     SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
     
-    # Copy Secret-Genie files
-    if [ -d "$SCRIPT_DIR/Secret-Genie/src/hooks/commit_scripts" ]; then
-        cp -r "$SCRIPT_DIR/Secret-Genie/src/hooks/commit_scripts/"* "$SECRET_DIR/commit_scripts/"
+    # Copy Secret-Genie files following their exact pattern
+    if [ -d "$SCRIPT_DIR/Secret-Genie/src/hooks" ]; then
+        # Copy the main hook files exactly as Secret-Genie does
+        hook_files=("pre-push" "pre_push.py" "scan-config")
+        for hook_file in "${hook_files[@]}"; do
+            source_file="$SCRIPT_DIR/Secret-Genie/src/hooks/$hook_file"
+            target_file="$HOOKS_DIR/$hook_file"
+            
+            if [ -f "$source_file" ]; then
+                cp "$source_file" "$target_file"
+                chmod 755 "$target_file"
+                echo -e "${GREEN}✅ Copied $hook_file${NC}"
+            fi
+        done
         
-        # Copy the main pre_push.py file
-        cp "$SCRIPT_DIR/Secret-Genie/src/hooks/pre_push.py" "$SECRET_DIR/"
-        
-        # Copy configuration files
-        if [ -f "$SCRIPT_DIR/Secret-Genie/src/hooks/scan-config" ]; then
-            cp "$SCRIPT_DIR/Secret-Genie/src/hooks/scan-config" "$SECRET_DIR/"
+        # Copy commit_scripts directory exactly as Secret-Genie does
+        if [ -d "$SCRIPT_DIR/Secret-Genie/src/hooks/commit_scripts" ]; then
+            cp -r "$SCRIPT_DIR/Secret-Genie/src/hooks/commit_scripts" "$HOOKS_DIR/"
+            echo -e "${GREEN}✅ Copied commit_scripts directory${NC}"
         fi
         
         # Copy requirements
@@ -130,11 +132,11 @@ copy_secret_files() {
     fi
 }
 
-# Function to create combined hooks
+# Function to create combined hooks - simple approach
 create_combined_hooks() {
     echo -e "${BLUE}🔗 Creating combined pre-push hook...${NC}"
     
-    # Create combined pre-push hook
+    # Create a simple wrapper pre-push hook that calls both validations
     cat > "$HOOKS_DIR/pre-push" << 'EOF'
 #!/bin/bash
 
@@ -170,6 +172,12 @@ else
     exit 1
 fi
 
+# Store stdin content for API validation
+stdin_content=""
+while IFS= read -r line; do
+    stdin_content+="$line"$'\n'
+done
+
 # Function to run API validation
 run_api_validation() {
     echo -e "${BLUE}🔍 Running API validation...${NC}"
@@ -181,7 +189,7 @@ run_api_validation() {
     fi
     
     # Read from stdin for API validation
-    while read local_ref local_sha remote_ref remote_sha; do
+    echo "$stdin_content" | while read local_ref local_sha remote_ref remote_sha; do
         if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
             # Branch is being deleted, nothing to validate
             continue
@@ -211,82 +219,57 @@ run_api_validation() {
             
             if [ $VALIDATION_EXIT_CODE -ne 0 ]; then
                 echo -e "${RED}✗ API validation failed or was cancelled${NC}"
-                return 1
+                exit 1
             else
                 echo -e "${GREEN}✓ API validation passed${NC}"
             fi
         fi
     done
-    
-    return 0
 }
 
-# Function to run secret scanning
+# Function to run secret scanning - exactly like Secret-Genie
 run_secret_scanning() {
     echo -e "${BLUE}🔒 Running secret scanning...${NC}"
     
     # Check if secret scanning module exists
-    if [ ! -f "$APIGENIE_ROOT/secret/pre_push.py" ]; then
+    if [ ! -f "$HOOK_DIR/pre_push.py" ]; then
         echo -e "${YELLOW}⚠️  Secret scanning module not found, skipping secret validation${NC}"
         return 0
     fi
     
-    # Set up environment for secret scanner - CRITICAL: Stay in repo directory
-    export SCRIPT_DIR="$APIGENIE_ROOT/secret"
-    
-    # Add the secret scripts to Python path
-    export PYTHONPATH="$APIGENIE_ROOT/secret:$PYTHONPATH"
-    
-    # Run secret scanner from the repository directory (not changing dirs)
-    echo -e "${YELLOW}Running secret scanner from repository: $REPO_ROOT${NC}"
-    
-    # Call the secret scanner Python script directly with proper path setup
-    $PYTHON "$APIGENIE_ROOT/secret/pre_push.py"
+    # Run secret scanner exactly as Secret-Genie does
+    $PYTHON "$HOOK_DIR/pre_push.py"
     
     SECRET_EXIT_CODE=$?
     
     if [ $SECRET_EXIT_CODE -ne 0 ]; then
         echo -e "${RED}✗ Secret scanning failed or was cancelled${NC}"
-        return 1
+        exit 1
     else
         echo -e "${GREEN}✓ Secret scanning passed${NC}"
     fi
-    
-    return 0
 }
 
-# Store stdin in a variable since we need to use it for both validations
-stdin_content=""
-while IFS= read -r line; do
-    stdin_content+="$line"$'\n'
-done
-
-# Run API validation first
+# Run API validation if we have stdin content
 if [ -n "$stdin_content" ]; then
-    echo "$stdin_content" | run_api_validation
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}✗ Pre-push validation failed at API validation stage${NC}"
-        exit 1
-    fi
+    run_api_validation
 fi
 
-# Run secret scanning (this doesn't need stdin, it analyzes the repo directly)
+# Run secret scanning
 run_secret_scanning
-if [ $? -ne 0 ]; then
-    echo -e "${RED}✗ Pre-push validation failed at secret scanning stage${NC}"
-    exit 1
-fi
 
 echo -e "${GREEN}✅ All pre-push validations completed successfully${NC}"
 exit 0
 EOF
 
     # Copy the existing pre-commit hook as well
-    cp "$SCRIPT_DIR/hooks/pre-commit" "$HOOKS_DIR/"
+    if [ -f "$SCRIPT_DIR/hooks/pre-commit" ]; then
+        cp "$SCRIPT_DIR/hooks/pre-commit" "$HOOKS_DIR/"
+        chmod 755 "$HOOKS_DIR/pre-commit"
+    fi
     
     # Make hooks executable
-    chmod +x "$HOOKS_DIR/pre-commit"
-    chmod +x "$HOOKS_DIR/pre-push"
+    chmod 755 "$HOOKS_DIR/pre-push"
     
     echo -e "${GREEN}✅ Combined hooks created${NC}"
 }
@@ -361,19 +344,6 @@ EOF
     echo -e "${GREEN}✅ Uninstall script created${NC}"
 }
 
-# Function to update hook paths in copied files
-update_hook_paths() {
-    echo -e "${BLUE}🔧 Updating hook file paths...${NC}"
-    
-    # Update pre-commit hook if it exists
-    if [ -f "$HOOKS_DIR/pre-commit" ]; then
-        sed -i.bak "s|PROJECT_ROOT=\"\$(dirname \"\$HOOK_DIR\")\"|PROJECT_ROOT=\"$APIGENIE_DIR\"|g" "$HOOKS_DIR/pre-commit"
-        rm -f "$HOOKS_DIR/pre-commit.bak"
-    fi
-    
-    echo -e "${GREEN}✅ Hook paths updated${NC}"
-}
-
 # Function to check dependencies
 check_dependencies() {
     echo -e "${BLUE}🔍 Checking dependencies...${NC}"
@@ -396,11 +366,11 @@ check_dependencies() {
     echo -e "${GREEN}✅ Dependencies checked${NC}"
 }
 
-# Function to configure git
+# Function to configure git - exactly like Secret-Genie
 configure_git() {
     echo -e "${BLUE}⚙️  Configuring global git hooks...${NC}"
     
-    # Set global hooks path
+    # Set global hooks path exactly as Secret-Genie does
     git config --global core.hooksPath "$HOOKS_DIR"
     
     echo -e "${GREEN}✅ Git configured to use combined hooks${NC}"
@@ -421,7 +391,7 @@ test_installation() {
     fi
     
     # Test secret scanner
-    if [ -f "$SECRET_DIR/commit_scripts/secretscan.py" ]; then
+    if [ -f "$HOOKS_DIR/commit_scripts/secretscan.py" ]; then
         echo -e "${GREEN}✅ Secret scanner components installed${NC}"
     fi
     
@@ -478,7 +448,6 @@ main() {
     copy_validation_files
     copy_secret_files
     create_combined_hooks
-    update_hook_paths
     create_version_info
     create_uninstall_script
     configure_git
