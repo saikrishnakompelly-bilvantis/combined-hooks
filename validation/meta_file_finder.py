@@ -296,14 +296,13 @@ class MetaFileFinder:
     def find_closest_meta_file(self, file_path: str) -> Optional[str]:
         """
         Find the closest api.meta file to a given file path.
-        Searches up the directory tree but stays within repository boundary.
+        Searches up the directory tree.
         """
         all_meta_files = self.find_meta_files()
         file_dir = os.path.dirname(file_path)
         
-        # Start from the file's directory and go up, but stay within repo root
+        # Start from the file's directory and go up
         current_dir = file_dir
-        repo_root = str(self.root_path)
         
         while True:
             # Look for meta files in current directory
@@ -312,13 +311,9 @@ class MetaFileFinder:
                 if meta_dir == current_dir:
                     return meta_file
             
-            # Stop if we've reached the repository root to avoid going outside repo boundary
-            if os.path.abspath(current_dir) == os.path.abspath(repo_root):
-                break
-                
             # Move up one directory
             parent_dir = os.path.dirname(current_dir)
-            if parent_dir == current_dir:  # Reached filesystem root
+            if parent_dir == current_dir:  # Reached root
                 break
             current_dir = parent_dir
         

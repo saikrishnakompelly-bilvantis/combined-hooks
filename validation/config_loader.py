@@ -79,11 +79,12 @@ class ConfigLoader:
         
         current_dir = Path.cwd()
         
-        # Search only in current directory to avoid git repository boundary issues
-        for config_name in config_names:
-            config_path = current_dir / config_name
-            if config_path.exists():
-                return str(config_path)
+        # Search in current directory and parent directories
+        for parent in [current_dir] + list(current_dir.parents):
+            for config_name in config_names:
+                config_path = parent / config_name
+                if config_path.exists():
+                    return str(config_path)
         
         return None
     
