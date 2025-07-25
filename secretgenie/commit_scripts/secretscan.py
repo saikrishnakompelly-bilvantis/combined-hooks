@@ -23,6 +23,9 @@ from utils import (
 import webbrowser
 from pathlib import Path
 
+# --- COPY/IMPORT ValidationWindow class here (from pre_commit.py) ---
+# --- END COPY ---
+
 class SecretScanner:
     """Scanner for detecting potential secrets in code."""
     
@@ -734,11 +737,11 @@ def main() -> None:
                 except Exception as e:
                     print(f"Warning: Could not scan {file_path}: {e}", file=sys.stderr)
             if results:
-                print("Potential secrets found in pushed changes:")
-                for result in results:
-                    print(f"- {result['file_path']}:{result['line_number']}")
-            # Show UI/justification and HTML report as in scan_staged_changes
-            # (You may want to reuse ValidationWindow or similar here)
+                # Show UI/justification as in pre-commit
+                validation = ValidationWindow()
+                if not validation.run_validation(results):
+                    sys.exit(1)
+                # Save metadata, generate HTML report, etc. (reuse pre-commit logic)
         except Exception as e:
             logging.error(f"Error scanning commit range diff: {e}")
             sys.exit(1)
