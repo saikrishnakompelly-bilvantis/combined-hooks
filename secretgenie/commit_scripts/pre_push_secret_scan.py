@@ -19,7 +19,7 @@ logging.basicConfig(
 SCRIPT_DIR = Path(__file__).parent
 sys.path.append(str(SCRIPT_DIR))
  
-from secretscan import SecretScanner
+from commit_scripts.secretscan import SecretScanner
  
 def get_script_dir():
     """Get the directory where this script is located."""
@@ -87,22 +87,6 @@ def get_staged_files():
     except subprocess.CalledProcessError as e:
         logging.error(f"Error getting staged files: {e}")
         return []
-
-def get_diff_files(commit_range=None):
-    if commit_range:
-        cmd = ['git', 'diff', commit_range, '--name-only']
-    else:
-        cmd = ['git', 'diff', '--cached', '--name-only']
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    files = result.stdout.strip().split('\n')
-    return [f for f in files if f]
-
-def get_diff_output(commit_range=None):
-    if commit_range:
-        diff_cmd = ['git', 'diff', commit_range, '-p', '--unified=0', '--no-color']
-    else:
-        diff_cmd = ['git', 'diff', '--cached', '-p', '--unified=0', '--no-color']
-    return subprocess.check_output(diff_cmd, text=True)
  
 def run_secret_scan():
     """Run the secret scanning script."""
@@ -583,12 +567,6 @@ def main():
         check_python()
         check_git()
         
-        commit_range = None
-        if '--range' in sys.argv:
-            idx = sys.argv.index('--range')
-            if idx + 1 < len(sys.argv):
-                commit_range = sys.argv[idx + 1]
-
         staged_files = get_staged_files()
         if not staged_files:
             logging.info("No files staged for commit")
