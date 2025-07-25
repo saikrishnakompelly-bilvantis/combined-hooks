@@ -88,15 +88,6 @@ copy_validation_files() {
     # Get the script directory (where this install.sh is located)
     SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
     
-    # Find Secret-Genie directory (assuming it's in the same parent directory)
-    SECRET_GENIE_SOURCE="$(dirname "$SCRIPT_DIR")/Secret-Genie/src"
-    
-    if [ ! -d "$SECRET_GENIE_SOURCE" ]; then
-        echo -e "${RED}❌ Secret-Genie source directory not found at: $SECRET_GENIE_SOURCE${NC}"
-        echo -e "${YELLOW}   Please ensure Secret-Genie is in the same parent directory as API-Genie${NC}"
-        exit 1
-    fi
-    
     # Copy API validation package
     cp -r "$SCRIPT_DIR/validation/"* "$VALIDATION_DIR/"
     
@@ -112,15 +103,6 @@ copy_validation_files() {
     cp "$SCRIPT_DIR/requirements.txt" "$GENIE_DIR/"
     if [ -f "$SCRIPT_DIR/demo_interactive.py" ]; then
         cp "$SCRIPT_DIR/demo_interactive.py" "$GENIE_DIR/"
-    fi
-    
-    # Copy Secret-Genie requirements if they exist
-    if [ -f "$SECRET_GENIE_SOURCE/../requirements.txt" ]; then
-        # Merge requirements files
-        cat "$SECRET_GENIE_SOURCE/../requirements.txt" >> "$GENIE_DIR/requirements.txt"
-        # Remove duplicates
-        sort "$GENIE_DIR/requirements.txt" | uniq > "$GENIE_DIR/requirements_temp.txt"
-        mv "$GENIE_DIR/requirements_temp.txt" "$GENIE_DIR/requirements.txt"
     fi
     
     # Make hooks executable
